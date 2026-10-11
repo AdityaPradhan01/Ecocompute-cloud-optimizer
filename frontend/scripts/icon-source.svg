@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#121211" />
+  <rect x="106" y="106" width="300" height="300" fill="none" stroke="#f6f6f3" stroke-width="10" />
+  <!-- 3x3 pixel grid, one accent cell — same [[1,0,1],[0,1,0],[1,1,0]] matrix as src/components/Logo.jsx -->
+  <rect x="137" y="137" width="70" height="70" fill="#f6f6f3" />
+  <rect x="305" y="137" width="70" height="70" fill="#f6f6f3" />
+  <rect x="221" y="221" width="70" height="70" fill="#f5c518" />
+  <rect x="137" y="305" width="70" height="70" fill="#f6f6f3" />
+  <rect x="221" y="305" width="70" height="70" fill="#f6f6f3" />
+</svg>

@@ -1,0 +1,35 @@
+# Local "production-like" sanity check — not how this deploys for real
+# (that's Render + MongoDB Atlas, see README.md). Useful to confirm the
+# Docker images build and the three services talk to each other before
+# touching Render.
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/ecocompute
+      - CORS_ORIGINS=http://localhost:8080
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL: http://localhost:5000
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

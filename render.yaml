@@ -1,0 +1,92 @@
+# Render Blueprint — see https://render.com/docs/blueprint-spec
+# After connecting this repo in Render, it proposes these two services.
+# Fill in the env vars marked sync:false in the Render dashboard; never
+# commit real values here.
+services:
+  - type: web
+    name: ecocompute-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: node index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false # set to the frontend's Render URL once it's created
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 12h
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false # optional — scheduled report emails only send if this is set
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: LEADS_NOTIFY_EMAIL
+        sync: false # optional — only meaningful on the one public/marketing deployment
+
+  - type: web
+    name: ecocompute-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false # set to the backend service's Render URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: "geolocation=(), camera=(), microphone=(), payment=()"
+      - path: /*
+        name: Strict-Transport-Security
+        value: "max-age=31536000; includeSubDomains"
+      # connect-src is 'self' https: rather than the exact backend origin —
+      # that origin is a different Render URL set per customer deployment
+      # (REACT_APP_API_URL above), not knowable in this shared template.
+      # Once deployed, tightening connect-src to the real backend URL here
+      # is a worthwhile extra step (see docs/CUSTOMER_ONBOARDING.md).
+      # style-src needs 'unsafe-inline' because every component in this app
+      # is styled via inline style={{}} objects, not stylesheets — that's
+      # a far smaller XSS surface than script-src 'unsafe-inline' (which
+      # is NOT present here: no eval, no dangerouslySetInnerHTML anywhere
+      # in this codebase, confirmed by a full grep, so script-src stays strict).
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"

@@ -1,0 +1,24 @@
+{
+  "id": "/",
+  "short_name": "EcoCompute",
+  "name": "EcoCompute Cloud Optimizer",
+  "description": "Cloud infrastructure monitoring and sustainability platform — ingests server metrics, classifies utilization, and estimates the energy, carbon and cost impact of your fleet with a ranked optimization queue.",
+  "icons": [
+    { "src": "favicon.ico", "sizes": "64x64 48x48 32x32 16x16", "type": "image/x-icon" },
+    { "src": "logo192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "logo512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "maskable512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ],
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#121211",
+  "background_color": "#f6f6f3",
+  "categories": ["business", "productivity", "utilities"],
+  "shortcuts": [
+    { "name": "Dashboard", "url": "/app/dashboard", "description": "Live operations dashboard" },
+    { "name": "Mini widget", "url": "/widget", "description": "Compact live-metrics widget" },
+    { "name": "Detection", "url": "/app/detection", "description": "Telemetry detection sandbox" }
+  ]
+}

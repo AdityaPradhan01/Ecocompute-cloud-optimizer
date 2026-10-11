@@ -1,0 +1,115 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #f6f6f3;
+  color: #121211;
+  font-family: 'Archivo', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: #121211;
+}
+
+a:hover {
+  color: #6b6b66;
+}
+
+::selection {
+  background: #f5c518;
+}
+
+:focus-visible {
+  outline: 2px solid #121211;
+  outline-offset: 2px;
+}
+
+input, select, button, textarea {
+  font-family: inherit;
+}
+
+button {
+  font: inherit;
+}
+
+table {
+  font-family: inherit;
+}
+
+@keyframes ec-scan {
+  0% { top: -2px; }
+  100% { top: 100%; }
+}
+
+@keyframes ec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.12; }
+}
+
+@keyframes ec-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+/* Logo (components/Logo.jsx), Splash, and the /widget page share these — one
+   place to tune the "is it alive" motion, and one place to kill it for
+   prefers-reduced-motion. No rounded corners, no circles, no gradients —
+   same hard-edged, bordered grid language as the Landing page's hero rack. */
+@keyframes ec-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes ec-spin-rev { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+@keyframes ec-scan-v { 0% { transform: translateY(-14%); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translateY(114%); opacity: 0; } }
+@keyframes ec-glow { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.9; } }
+
+.ec-logo-ring { transform-origin: 50% 50%; animation: ec-spin 7s linear infinite; }
+.ec-logo-ring-slow { transform-origin: 50% 50%; animation: ec-spin-rev 11s linear infinite; }
+.ec-logo-scan { animation: ec-scan-v 2.4s ease-in-out infinite; }
+.ec-logo-led { animation: ec-blink 2.2s ease-in-out infinite; }
+.ec-logo-glow { animation: ec-glow 3.2s ease-in-out infinite; }
+
+.ec-logo-busy .ec-logo-ring { animation-duration: 2.6s; }
+.ec-logo-busy .ec-logo-ring-slow { animation-duration: 4.4s; }
+.ec-logo-busy .ec-logo-led { animation-duration: 0.9s; }
+.ec-logo-busy .ec-logo-glow { animation-duration: 1.6s; }
+
+/* Splash screen (components/Splash.jsx) background grid + exit transition */
+.ec-splash-cell { animation: ec-pulse 2.4s ease-in-out infinite; }
+.ec-splash-fade {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.ec-splash-fade.ec-splash-exit {
+  opacity: 0;
+  transform: scale(1.04);
+}
+
+/* Sidebar.jsx's new pop-out/install buttons + live-status footer — hidden
+   below 768px. Scoped to just these new elements; everything that already
+   existed in the sidebar (nav, logout, collapse) is untouched. */
+@media (max-width: 768px) {
+  .ec-sidebar-tools, .ec-sidebar-live-status { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-logo-ring, .ec-logo-ring-slow, .ec-logo-scan, .ec-logo-led, .ec-logo-glow, .ec-splash-cell {
+    animation: none !important;
+  }
+  .ec-splash-fade, .ec-splash-fade.ec-splash-exit {
+    transform: none;
+    transition: opacity 0.3s ease;
+  }
+}

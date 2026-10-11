@@ -1,0 +1,24 @@
+{
+  "name": "ecocompute-widget",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Frameless, always-on-top desktop widget for EcoCompute — a real native window, not a browser popup.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "author": "EcoCompute",
+  "build": {
+    "appId": "com.ecocompute.widget",
+    "productName": "EcoCompute Widget",
+    "files": ["main.js", "preload.js", "tray-icon.png"],
+    "win": { "target": "portable", "icon": "app-icon.png" },
+    "mac": { "target": "dmg", "icon": "app-icon.png" },
+    "linux": { "target": "AppImage", "icon": "app-icon.png" }
+  }
+}

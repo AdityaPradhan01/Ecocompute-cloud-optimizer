@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#121211" />
+    <meta
+      name="description"
+      content="EcoCompute Cloud Optimizer — cloud infrastructure monitoring and sustainability platform. Ingests server metrics, classifies utilization, and estimates the energy, carbon and cost impact of your fleet with a ranked optimization queue."
+    />
+
+    <!-- PWA install (manifest.json) -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+
+    <!-- iOS has no beforeinstallprompt / no manifest-driven install UI — these
+         tags are what actually makes "Add to Home Screen" behave like a
+         standalone app there (own window, no Safari chrome, correct title). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EcoCompute" />
+
+    <title>EcoCompute Cloud Optimizer</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
