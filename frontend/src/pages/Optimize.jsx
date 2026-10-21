@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import client from '../api/client';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 import { COLOR, ZONES, n0, n1, zoneLabel } from '../theme';
 import ClassificationChip from '../components/ClassificationChip';
 import { EmptyFleetState, ErrorFleetState, LoadingSkeletons } from '../components/DataStates';
+
+const axisStyle = { fontFamily: 'Archivo, sans-serif', fontSize: 10, fill: COLOR.muted };
 
 const Optimize = () => {
   const [items, setItems] = useState([]);
@@ -75,6 +78,29 @@ const Optimize = () => {
       ]
     : null;
 
+  // Before/after totals, derived from the same recommendation queue and the
+  // same deltas /api/optimize/apply just persisted — not a separate
+  // calculation, so this can never drift from what the apply call reported.
+  const pctChange = (before, after) => (before > 0 ? Math.round(((before - after) / before) * 100) : 0);
+  const impactCharts = summary
+    ? (() => {
+        const beforeCost = items.reduce((a, r) => a + r.currentCostINR, 0);
+        const beforeEnergy = items.reduce((a, r) => a + r.currentEnergyKWh, 0);
+        const beforeCarbon = items.reduce((a, r) => a + r.currentCarbonKg, 0);
+        const afterCost = beforeCost - summary.monthlySavingsINR;
+        const afterEnergy = beforeEnergy - summary.energyReductionKWh;
+        const afterCarbon = beforeCarbon - summary.co2ReductionKg;
+        return [
+          { key: 'cost', title: 'Monthly cost', note: '₹ per month', fill: COLOR.ink, fmt: (v) => `₹${n0(v)}`,
+            data: [{ label: 'Before', value: beforeCost }, { label: 'After', value: afterCost }], pct: pctChange(beforeCost, afterCost) },
+          { key: 'energy', title: 'Energy use', note: 'kWh per month', fill: COLOR.yellow, fmt: (v) => `${n0(v)} kWh`,
+            data: [{ label: 'Before', value: beforeEnergy }, { label: 'After', value: afterEnergy }], pct: pctChange(beforeEnergy, afterEnergy) },
+          { key: 'carbon', title: 'Carbon footprint', note: 'kg CO₂ per month', fill: COLOR.green, fmt: (v) => `${n1(v)} kg`,
+            data: [{ label: 'Before', value: beforeCarbon }, { label: 'After', value: afterCarbon }], pct: pctChange(beforeCarbon, afterCarbon) }
+        ];
+      })()
+    : null;
+
   return (
     <section style={{ flex: 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, padding: '22px 28px', borderBottom: `2px solid ${COLOR.ink}`, background: COLOR.paper, flexWrap: 'wrap' }}>
@@ -94,6 +120,40 @@ const Optimize = () => {
               <span style={{ display: 'block', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: COLOR.muted, marginBottom: 10 }}>{d.label}</span>
               <span style={{ display: 'block', fontSize: 'clamp(22px, 1.9vw, 32px)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1, color: d.fg, overflowWrap: 'anywhere' }}>{d.value}</span>
               <span style={{ display: 'block', fontSize: 11, color: COLOR.muted, marginTop: 8 }}>{d.note}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {impactCharts && (
+        <div style={{ padding: '22px 28px 4px' }}>
+          <h4 style={{ margin: '0 0 2px', fontSize: 15 }}>Before vs. after</h4>
+          <p style={{ margin: '0 0 14px', fontSize: 11, color: COLOR.muted }}>Fleet-wide totals, this estimate vs. the queue currently applied</p>
+        </div>
+      )}
+      {impactCharts && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', borderBottom: `2px solid ${COLOR.ink}`, background: COLOR.paper }}>
+          {impactCharts.map((c, i) => (
+            <div key={c.key} style={{ padding: '6px 24px 22px', borderRight: i < impactCharts.length - 1 ? `2px solid ${COLOR.ink}` : 'none', minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 11, fontWeight: 800, marginBottom: 2 }}>{c.title}</span>
+              <span style={{ display: 'block', fontSize: 11, color: COLOR.muted, marginBottom: 10 }}>
+                {c.note} · <span style={{ fontWeight: 800, color: c.pct > 0 ? COLOR.green : COLOR.muted }}>{c.pct > 0 ? `−${c.pct}%` : 'no change'}</span>
+              </span>
+              <div style={{ height: 150 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={c.data} margin={{ top: 18, right: 4, left: 4, bottom: 0 }}>
+                    <XAxis dataKey="label" tick={axisStyle} tickLine={false} axisLine={{ stroke: COLOR.ink, strokeWidth: 2 }} />
+                    <YAxis hide domain={[0, 'auto']} />
+                    <Tooltip
+                      formatter={(value) => c.fmt(value)}
+                      contentStyle={{ fontFamily: 'Archivo, sans-serif', fontSize: 12, border: `1.5px solid ${COLOR.ink}`, borderRadius: 0 }}
+                    />
+                    <Bar dataKey="value" fill={c.fill} radius={[0, 0, 0, 0]} maxBarSize={64}>
+                      <LabelList dataKey="value" position="top" formatter={c.fmt} style={{ fontFamily: 'Archivo, sans-serif', fontSize: 11, fontWeight: 700, fill: COLOR.ink }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           ))}
         </div>
