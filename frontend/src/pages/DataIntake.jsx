@@ -29,8 +29,7 @@ const DataIntake = () => {
 
   useEffect(() => { loadKpis(); }, []);
 
-  const handleFile = (e) => {
-    const f = e.target.files && e.target.files[0];
+  const stageFile = (f) => {
     if (!f) return;
     setFile(f);
     setStatus({ label: 'Staged', text: `${f.name} parsed. Review the column map, then ingest.`, accent: COLOR.yellow });
@@ -38,6 +37,21 @@ const DataIntake = () => {
     const reader = new FileReader();
     reader.onload = () => setPreview(parseCsvPreview(String(reader.result || '')));
     reader.readAsText(f);
+  };
+
+  const handleFile = (e) => stageFile(e.target.files && e.target.files[0]);
+
+  // The drop zone's copy ("Drop a CSV here") promised drag-and-drop that was
+  // never actually wired up — a label+hidden-input only ever opens the file
+  // picker on click, never handles a native drop. Without preventDefault on
+  // dragOver, the drop event never fires at all; without it on drop, the
+  // browser's default action takes over (typically navigating the tab away
+  // to display the raw file) instead of staging it here.
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    stageFile(e.dataTransfer.files && e.dataTransfer.files[0]);
   };
 
   const clearFile = () => {
@@ -160,7 +174,11 @@ const DataIntake = () => {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', border: `2px solid ${COLOR.ink}`, borderTop: 0, background: COLOR.paper }}>
           <div style={{ padding: '24px 22px', borderRight: `2px solid ${COLOR.ink}`, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: '26px 20px', border: `2px dashed ${COLOR.ink}`, background: COLOR.canvas, cursor: 'pointer' }}>
+            <label
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: '26px 20px', border: `2px dashed ${COLOR.ink}`, background: COLOR.canvas, cursor: 'pointer' }}
+            >
               <span style={{ fontSize: 13, fontWeight: 800 }}>Drop a CSV here, or browse</span>
               <span style={{ fontSize: 11, color: COLOR.muted }}>Required headers: serverName, region, environment, cpuUtilization, tdp, hourlyRate</span>
               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 14px', background: COLOR.ink, color: '#fff', fontSize: 12, fontWeight: 800, letterSpacing: '0.04em' }}>Browse files</span>
