@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 
-// Only CSVs, capped at 5MB, rejected up front by mimetype+extension rather
-// than accepting anything and sorting it out later in the parser.
+// Only CSVs, capped at 25MB (a real fleet export can run well past the old
+// 5MB ceiling), rejected up front by mimetype+extension rather than
+// accepting anything and sorting it out later in the parser.
 const upload = multer({
   dest: 'uploads/',
-  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 5 },
+  limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 5 },
   fileFilter: (req, file, cb) => {
     const okMime = ['text/csv', 'application/vnd.ms-excel', 'application/octet-stream'].includes(file.mimetype);
     const okExt = file.originalname.toLowerCase().endsWith('.csv');

@@ -107,8 +107,10 @@ exports.uploadCSV = async (req, res) => {
         // Wipe old temporary dataset entries to ensure fresh sync across panels
         await CloudResource.deleteMany({});
         
-        // Batch insert newly parsed infrastructure entities
-        const storedResources = await CloudResource.insertMany(resultsArray);
+        // Batch insert newly parsed infrastructure entities. unordered so one
+        // bad row (should be rare — already validated above) can't abort the
+        // whole batch for a large real-world upload.
+        const storedResources = await CloudResource.insertMany(resultsArray, { ordered: false });
         
         // Clean up file from temp directory storage
         fs.unlinkSync(filePath);

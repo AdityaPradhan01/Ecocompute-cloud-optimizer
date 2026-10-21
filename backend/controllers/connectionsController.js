@@ -34,6 +34,19 @@ const IMPLEMENTED_PROVIDERS = ['aws'];
 const AWS_ROLE_ARN_RE = /^arn:aws:iam::\d{12}:role\/[\w+=,.@-]+$/;
 const AWS_ACCESS_KEY_ID_RE = /^AKIA[0-9A-Z]{16}$/;
 
+// DescribeInstances pages at ~1000 instances per call — a real account
+// above that would otherwise silently lose everything past the first page.
+async function describeAllInstances(ec2, params = {}) {
+  const reservations = [];
+  let nextToken;
+  do {
+    const result = await ec2.send(new DescribeInstancesCommand({ ...params, NextToken: nextToken }));
+    reservations.push(...(result.Reservations || []));
+    nextToken = result.NextToken;
+  } while (nextToken);
+  return reservations;
+}
+
 async function buildCard(provider) {
   const doc = await Connection.findOne({ provider });
   const instanceCount = doc ? await CloudResource.countDocuments({ sourceConnectionId: doc._id }) : 0;
@@ -166,8 +179,8 @@ exports.testConnection = async (req, res) => {
       let totalInstances = 0;
       for (const region of selectedZones) {
         const ec2 = new EC2Client({ credentials: creds, region });
-        const result = await ec2.send(new DescribeInstancesCommand({}));
-        totalInstances += (result.Reservations || []).reduce((a, r) => a + (r.Instances || []).length, 0);
+        const reservations = await describeAllInstances(ec2);
+        totalInstances += reservations.reduce((a, r) => a + (r.Instances || []).length, 0);
       }
       steps.push({ mark: '04', text: `Discovered ${totalInstances} EC2 instance(s) across ${selectedZones.length} region(s)`, ok: true });
       steps.push({ mark: '05', text: 'Connection healthy. Scope used: ec2:DescribeInstances, sts:GetCallerIdentity (read-only).', ok: true });
@@ -282,51 +295,57 @@ async function runSync(doc) {
       const ec2 = new EC2Client({ credentials: creds, region });
       const cw = new CloudWatchClient({ credentials: creds, region });
 
-      const described = await ec2.send(new DescribeInstancesCommand({
+      const reservations = await describeAllInstances(ec2, {
         Filters: [{ Name: 'instance-state-name', Values: ['running', 'stopped'] }]
-      }));
+      });
+      const regionInstances = reservations.flatMap((r) => r.Instances || []);
 
-      for (const reservation of described.Reservations || []) {
-        for (const inst of reservation.Instances || []) {
-          const nameTag = (inst.Tags || []).find((t) => t.Key === 'Name');
-          const envTag = (inst.Tags || []).find((t) => /^env(ironment)?$/i.test(t.Key));
-          const isRunning = inst.State && inst.State.Name === 'running';
-          const cpu = isRunning ? await fetchRecentCpuAverage(cw, inst.InstanceId) : 0;
+      // CPU lookups are independent CloudWatch calls — run them concurrently
+      // instead of one-by-one, so a region with hundreds of instances
+      // doesn't turn a sync into hundreds of sequential round trips (and
+      // risk the request that triggered it timing out).
+      const cpuAverages = await Promise.all(regionInstances.map((inst) =>
+        inst.State && inst.State.Name === 'running' ? fetchRecentCpuAverage(cw, inst.InstanceId) : Promise.resolve(0)
+      ));
 
-          const tdp = estimateTdpWatts(inst.InstanceType);
-          const rate = estimateHourlyRateINR(inst.InstanceType, region);
-          const environment = envTag ? envTag.Value.toLowerCase() : 'production';
+      regionInstances.forEach((inst, idx) => {
+        const cpu = cpuAverages[idx];
+        const nameTag = (inst.Tags || []).find((t) => t.Key === 'Name');
+        const envTag = (inst.Tags || []).find((t) => /^env(ironment)?$/i.test(t.Key));
 
-          const energy = carbonMath.calculateEnergy(tdp, cpu);
-          const carbon = carbonMath.calculateCarbon(energy, region);
-          const cost = carbonMath.calculateCost(rate);
-          const classification = carbonMath.getClassification(cpu);
+        const tdp = estimateTdpWatts(inst.InstanceType);
+        const rate = estimateHourlyRateINR(inst.InstanceType, region);
+        const environment = envTag ? envTag.Value.toLowerCase() : 'production';
 
-          instances.push({
-            serverName: nameTag ? nameTag.Value : inst.InstanceId,
-            instanceType: inst.InstanceType,
-            awsInstanceId: inst.InstanceId,
-            tdp,
-            tdpSource: 'estimated',
-            cpuUtilization: parseFloat(cpu.toFixed(1)),
-            pue: 1.2,
-            region,
-            hourlyRate: parseFloat(rate.toFixed(2)),
-            pricingSource: 'aws-ondemand-list-price-approx',
-            environment,
-            energyKWh: parseFloat(energy.toFixed(3)),
-            carbonKg: parseFloat(carbon.toFixed(3)),
-            costINR: parseFloat(cost.toFixed(2)),
-            classification,
-            isOptimized: false,
-            sourceConnectionId: doc._id
-          });
-        }
-      }
+        const energy = carbonMath.calculateEnergy(tdp, cpu);
+        const carbon = carbonMath.calculateCarbon(energy, region);
+        const cost = carbonMath.calculateCost(rate);
+        const classification = carbonMath.getClassification(cpu);
+
+        instances.push({
+          serverName: nameTag ? nameTag.Value : inst.InstanceId,
+          instanceType: inst.InstanceType,
+          awsInstanceId: inst.InstanceId,
+          tdp,
+          tdpSource: 'estimated',
+          cpuUtilization: parseFloat(cpu.toFixed(1)),
+          pue: 1.2,
+          region,
+          hourlyRate: parseFloat(rate.toFixed(2)),
+          pricingSource: 'aws-ondemand-list-price-approx',
+          environment,
+          energyKWh: parseFloat(energy.toFixed(3)),
+          carbonKg: parseFloat(carbon.toFixed(3)),
+          costINR: parseFloat(cost.toFixed(2)),
+          classification,
+          isOptimized: false,
+          sourceConnectionId: doc._id
+        });
+      });
     }
 
     await CloudResource.deleteMany({ sourceConnectionId: doc._id });
-    if (instances.length) await CloudResource.insertMany(instances);
+    if (instances.length) await CloudResource.insertMany(instances, { ordered: false });
 
     doc.status = 'Live';
     doc.lastSyncAt = new Date();
