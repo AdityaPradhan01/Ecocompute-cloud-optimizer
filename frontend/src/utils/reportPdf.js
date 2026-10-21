@@ -5,6 +5,17 @@ import { zoneLabel, n0, n1 } from '../theme';
 const INK = [18, 18, 17];
 const MUTED = [107, 107, 102];
 
+// analytics.aiInsights is free-text generated server-side (analyticsController.js)
+// and can contain ₹/CO₂/— — the same characters that break jsPDF's built-in
+// font elsewhere in this file. Left unsanitized, one of these mid-sentence
+// doesn't just mis-render — it corrupts splitTextToSize's wrap calculation
+// badly enough to silently drop the rest of that sentence from the page.
+const pdfSafe = (s) => String(s)
+  .replace(/CO₂/g, 'CO2')
+  .replace(/₹/g, 'Rs. ')
+  .replace(/≤/g, '<=')
+  .replace(/—/g, '-');
+
 function addHeader(doc, title, subtitle) {
   doc.setFillColor(...INK);
   doc.rect(0, 0, 210, 24, 'F');
@@ -30,6 +41,14 @@ function addHeader(doc, title, subtitle) {
 
 // Builds and downloads a real, multi-page PDF from the fleet's live state —
 // not a placeholder. Section inclusion mirrors the Reports screen checklist.
+//
+// jsPDF's built-in standard fonts (helvetica/times/courier) only cover a
+// Latin-1-ish byte range — any character above U+00FF gets silently
+// truncated to its low byte instead of erroring, so ₹ (U+20B9) rendered as
+// ¹ and CO₂'s subscript (U+2082) rendered as a stray ‚. Every string that
+// actually reaches doc.text()/autoTable() below is kept ASCII-safe for
+// that reason (Rs. instead of ₹, CO2 instead of CO₂, <= instead of ≤); this
+// comment itself can use real Unicode since comments never reach the PDF.
 export function generateReportPdf({ period, periodSlug, sections, resources, recommendations, analytics, settings, auditRows }) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const totalCost = resources.reduce((a, r) => a + (r.costINR || 0), 0);
@@ -48,11 +67,11 @@ export function generateReportPdf({ period, periodSlug, sections, resources, rec
       body: [
         ['Instances in fleet', String(resources.length)],
         ['Monthly energy footprint', `${n0(totalEnergy)} kWh`],
-        ['Monthly carbon footprint', `${n1(totalCarbon)} kg CO₂`],
-        ['Monthly operations cost', `₹${n0(totalCost)}`],
-        analytics ? ['Identified monthly savings', `₹${n0(analytics.summary?.monthlySavings)}`] : null,
-        analytics ? ['Projected annual savings', `₹${n0(analytics.summary?.annualSavings)}`] : null,
-        analytics ? ['Carbon abatement capacity', `${n1(analytics.summary?.carbonSaved)} kg CO₂`] : null
+        ['Monthly carbon footprint', `${n1(totalCarbon)} kg CO2`],
+        ['Monthly operations cost', `Rs. ${n0(totalCost)}`],
+        analytics ? ['Identified monthly savings', `Rs. ${n0(analytics.summary?.monthlySavings)}`] : null,
+        analytics ? ['Projected annual savings', `Rs. ${n0(analytics.summary?.annualSavings)}`] : null,
+        analytics ? ['Carbon abatement capacity', `${n1(analytics.summary?.carbonSaved)} kg CO2`] : null
       ].filter(Boolean),
       theme: 'grid',
       headStyles: { fillColor: INK, textColor: 255 },
@@ -67,7 +86,7 @@ export function generateReportPdf({ period, periodSlug, sections, resources, rec
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9.5);
       analytics.aiInsights.forEach((line) => {
-        const wrapped = doc.splitTextToSize(`• ${line}`, 182);
+        const wrapped = doc.splitTextToSize(`- ${pdfSafe(line)}`, 182);
         doc.text(wrapped, 14, y);
         y += wrapped.length * 5 + 2;
       });
@@ -79,7 +98,7 @@ export function generateReportPdf({ period, periodSlug, sections, resources, rec
     addHeader(doc, 'Carbon ledger', 'Approximate grid carbon intensity per AWS region (editable in Settings)');
     autoTable(doc, {
       startY: 48,
-      head: [['Region', 'gCO₂/kWh (approx.)']],
+      head: [['Region', 'gCO2/kWh (approx.)']],
       body: Object.entries(settings.gridFactors).map(([id, factor]) => [
         zoneLabel(id), String(factor)
       ]),
@@ -93,7 +112,7 @@ export function generateReportPdf({ period, periodSlug, sections, resources, rec
     doc.text('Per-instance carbon', 14, y);
     autoTable(doc, {
       startY: y + 4,
-      head: [['Instance', 'Region', 'kWh/mo', 'kg CO₂/mo']],
+      head: [['Instance', 'Region', 'kWh/mo', 'kg CO2/mo']],
       body: resources.map((r) => [r.serverName, zoneLabel(r.region), n0(r.energyKWh), n1(r.carbonKg)]),
       theme: 'striped',
       headStyles: { fillColor: INK, textColor: 255 },
@@ -106,7 +125,7 @@ export function generateReportPdf({ period, periodSlug, sections, resources, rec
     addHeader(doc, 'Instance register', `${resources.length} instances`);
     autoTable(doc, {
       startY: 48,
-      head: [['Instance', 'Region', 'Env', 'CPU %', 'Class', 'kWh/mo', 'kg CO₂', '₹/mo']],
+      head: [['Instance', 'Region', 'Env', 'CPU %', 'Class', 'kWh/mo', 'kg CO2', 'Rs./mo']],
       body: resources.map((r) => [
         r.serverName, zoneLabel(r.region), r.environment, `${r.cpuUtilization}%`,
         r.classification, n0(r.energyKWh), n1(r.carbonKg), n0(r.costINR)
@@ -122,7 +141,7 @@ export function generateReportPdf({ period, periodSlug, sections, resources, rec
     addHeader(doc, 'Optimization roadmap', 'Ranked by rupee yield');
     autoTable(doc, {
       startY: 48,
-      head: [['Instance', 'Region', 'Current ₹', 'Recommendation', 'Yield']],
+      head: [['Instance', 'Region', 'Current Rs.', 'Recommendation', 'Yield']],
       body: [...recommendations]
         .sort((a, b) => (b.currentCostINR * b.savingsPercent) - (a.currentCostINR * a.savingsPercent))
         .map((r) => [
@@ -147,13 +166,13 @@ export function generateReportPdf({ period, periodSlug, sections, resources, rec
     doc.setFontSize(10);
     const lines = [
       `Energy (kWh/mo) = (TDP watts × 730 hours × CPU utilization%) ÷ 100000`,
-      `Carbon (kg CO₂/mo) = (Energy kWh × PUE × grid factor gCO₂/kWh) ÷ 1000`,
-      `Cost (₹/mo) = hourly rate × 730 hours`,
+      `Carbon (kg CO2/mo) = (Energy kWh × PUE × grid factor gCO2/kWh) ÷ 1000`,
+      `Cost (Rs./mo) = hourly rate × 730 hours`,
       `Data-centre PUE currently in use: ${settings.pue}`,
-      `Classification thresholds: Idle < ${settings.idleBelow}% · Underutilized < ${settings.underutilizedBelow}% · Optimal ≤ ${settings.overloadedAbove}% · Overloaded above that`,
+      `Classification thresholds: Idle < ${settings.idleBelow}% · Underutilized < ${settings.underutilizedBelow}% · Optimal <= ${settings.overloadedAbove}% · Overloaded above that`,
       '',
       'Region model: real AWS regions. Grid carbon factors are approximate',
-      'country-level averages, editable in Settings — override with your own',
+      'country-level averages, editable in Settings - override with your own',
       'utility data for compliance-grade reporting.'
     ];
     let y = 48;
