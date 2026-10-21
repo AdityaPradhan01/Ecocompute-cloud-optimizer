@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import client from '../api/client';
 import { COLOR, ZONES, n0, n1 } from '../theme';
 
@@ -18,17 +18,29 @@ const Detection = () => {
   const [rate, setRate] = useState('9.40');
   const [metrics, setMetrics] = useState(null);
   const [settings, setSettings] = useState(null);
+  const [justRecomputed, setJustRecomputed] = useState(false);
+  const justRecomputedTimer = useRef(null);
 
   useEffect(() => {
     client.get('/api/settings').then((res) => setSettings(res.data)).catch(() => {});
   }, []);
+
+  useEffect(() => () => clearTimeout(justRecomputedTimer.current), []);
 
   const gridFactors = settings?.gridFactors || Object.fromEntries(ZONES.map((z) => [z.id, z.factor]));
   const pue = settings?.pue ?? 1.2;
 
   const recompute = () => {
     client.post('/api/detection/calculate', { tdp, utilization: util, region, hourlyRate: rate })
-      .then((res) => setMetrics(res.data))
+      .then((res) => {
+        setMetrics(res.data);
+        // Visible confirmation even when the numbers come back unchanged
+        // (e.g. clicking the button with no edited inputs) — otherwise a
+        // same-value response looks identical to the click doing nothing.
+        setJustRecomputed(true);
+        clearTimeout(justRecomputedTimer.current);
+        justRecomputedTimer.current = setTimeout(() => setJustRecomputed(false), 900);
+      })
       .catch((err) => setMetrics(err.response?.data ? { error: err.response.data.error } : { error: 'Calculation failed.' }));
   };
 
@@ -87,7 +99,7 @@ const Detection = () => {
             <label style={{ display: 'block', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: COLOR.muted, marginBottom: 6 }}>Hourly rate — ₹</label>
             <input type="number" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${COLOR.ink}`, background: COLOR.paper, color: COLOR.ink, fontSize: 14, fontWeight: 700 }} />
           </div>
-          <button onClick={recompute} style={{ padding: '13px 18px', background: COLOR.yellow, color: COLOR.ink, border: `2px solid ${COLOR.ink}`, fontWeight: 800, fontSize: 13, textAlign: 'left', cursor: 'pointer' }}>Recompute diagnostics</button>
+          <button onClick={recompute} style={{ padding: '13px 18px', background: justRecomputed ? COLOR.green : COLOR.yellow, color: justRecomputed ? '#fff' : COLOR.ink, border: `2px solid ${COLOR.ink}`, fontWeight: 800, fontSize: 13, textAlign: 'left', cursor: 'pointer', transition: 'background 0.15s ease' }}>{justRecomputed ? 'Recomputed ✓' : 'Recompute diagnostics'}</button>
           <div style={{ borderTop: `1.5px solid ${COLOR.hairline2}`, paddingTop: 14 }}>
             <span style={{ display: 'block', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: COLOR.muted, marginBottom: 8 }}>Constants in use</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, font: '600 11px ui-monospace, Menlo, monospace', color: COLOR.body }}>
@@ -100,6 +112,9 @@ const Detection = () => {
       </div>
 
       <div style={{ minWidth: 0 }}>
+        <div style={{ padding: '10px 26px', borderBottom: `2px solid ${COLOR.ink}`, background: COLOR.ink, color: COLOR.yellow, fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>
+          Hypothetical instance — not tied to your uploaded fleet. This panel only reflects the values entered on the left.
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, padding: '20px 26px', borderBottom: `2px solid ${COLOR.ink}`, background: dCls ? CLS_BANNER_BG[dCls] : COLOR.paper, flexWrap: 'wrap' }}>
           <div>
             <span style={{ display: 'block', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: COLOR.muted, marginBottom: 6 }}>Profile classification</span>

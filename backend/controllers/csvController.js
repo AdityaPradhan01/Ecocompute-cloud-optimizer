@@ -129,3 +129,17 @@ exports.uploadCSV = async (req, res) => {
       }
     });
 };
+
+// Wipes the fleet snapshot back to empty — a deliberate, explicit reset
+// (confirmed on the frontend) independent of login/logout, so a fresh demo
+// or a new customer handoff can start from zero without touching auth.
+exports.clearFleet = async (req, res) => {
+  try {
+    const { deletedCount } = await CloudResource.deleteMany({});
+    await logAudit(`Fleet snapshot cleared — ${deletedCount} instance(s) removed`);
+    res.json({ success: true, message: `Cleared ${deletedCount} instance(s). The fleet snapshot is now empty.`, deletedCount });
+  } catch (err) {
+    console.error('Error clearing fleet snapshot:', err);
+    res.status(500).json({ success: false, message: 'Failed to clear the fleet snapshot.' });
+  }
+};

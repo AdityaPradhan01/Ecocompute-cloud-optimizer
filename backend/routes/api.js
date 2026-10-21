@@ -44,6 +44,7 @@ router.post('/upload', uploadLimiter, upload.single('file'), (err, req, res, nex
   if (err) return res.status(400).json({ success: false, message: err.message });
   next();
 }, csvController.uploadCSV);
+router.delete('/fleet', csvController.clearFleet);
 
 // --- SETTINGS (classification thresholds, PUE, per-zone grid factors) ---
 router.get('/settings', settingsController.getSettings);

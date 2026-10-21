@@ -3,7 +3,7 @@ import { COLOR } from '../theme';
 
 // Replaces window.confirm for destructive actions (CSV ingest / demo seed
 // replacing the active fleet snapshot).
-const ConfirmModal = ({ open, title, body, cta, onConfirm, onCancel }) => {
+const ConfirmModal = ({ open, title, body, cta, onConfirm, onCancel, footnote }) => {
   if (!open) return null;
   return (
     <div style={{
@@ -17,7 +17,7 @@ const ConfirmModal = ({ open, title, body, cta, onConfirm, onCancel }) => {
         </div>
         <div style={{ padding: '22px 24px' }}>
           <p style={{ margin: '0 0 8px', fontSize: 13.5, color: COLOR.body }}>{body}</p>
-          <p style={{ margin: 0, fontSize: 12, color: COLOR.muted }}>The current snapshot is archived to the optimization log before it is overwritten.</p>
+          <p style={{ margin: 0, fontSize: 12, color: COLOR.muted }}>{footnote}</p>
         </div>
         <div style={{ display: 'flex', gap: 10, padding: '0 24px 22px', flexWrap: 'wrap' }}>
           <button

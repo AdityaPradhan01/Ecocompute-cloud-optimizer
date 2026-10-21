@@ -11,7 +11,7 @@ const DataIntake = () => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [status, setStatus] = useState(null);
-  const [confirmTarget, setConfirmTarget] = useState(null); // 'upload' | 'seed' | null
+  const [confirmTarget, setConfirmTarget] = useState(null); // 'upload' | 'seed' | 'clear' | null
   const [busy, setBusy] = useState(false);
 
   const loadKpis = () => {
@@ -76,6 +76,22 @@ const DataIntake = () => {
     }
   };
 
+  const runClear = async () => {
+    setBusy(true);
+    try {
+      const res = await client.delete('/api/fleet');
+      setConfirmTarget(null);
+      clearFile();
+      setStatus({ label: 'Cleared', text: res.data.message, accent: COLOR.green });
+      loadKpis();
+    } catch (err) {
+      setConfirmTarget(null);
+      setStatus({ label: 'Failed', text: 'Could not clear the fleet snapshot.', accent: '#b00020' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const stepFill = file ? COLOR.yellowTint : COLOR.paper;
   const stepMark = file ? COLOR.yellow : COLOR.paper;
 
@@ -89,6 +105,7 @@ const DataIntake = () => {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button onClick={() => navigate('/app/dashboard')} style={{ display: 'inline-flex', alignItems: 'center', padding: '13px 22px', background: COLOR.yellow, color: COLOR.ink, fontWeight: 800, fontSize: 14, border: `2px solid ${COLOR.ink}`, cursor: 'pointer' }}>Open live dashboard</button>
             <button onClick={() => setConfirmTarget('seed')} style={{ display: 'inline-flex', alignItems: 'center', padding: '13px 22px', background: COLOR.paper, color: COLOR.ink, fontWeight: 800, fontSize: 14, border: `2px solid ${COLOR.ink}`, cursor: 'pointer' }}>Load demo dataset</button>
+            <button onClick={() => setConfirmTarget('clear')} style={{ display: 'inline-flex', alignItems: 'center', padding: '13px 22px', background: COLOR.paper, color: '#b00020', fontWeight: 800, fontSize: 14, border: `2px solid #b00020`, cursor: 'pointer' }}>Clear all data</button>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
@@ -218,12 +235,17 @@ const DataIntake = () => {
 
       <ConfirmModal
         open={!!confirmTarget}
-        title={confirmTarget === 'seed' ? 'Replace the fleet with demo data?' : 'Replace the active fleet snapshot?'}
+        title={confirmTarget === 'seed' ? 'Replace the fleet with demo data?' : confirmTarget === 'clear' ? 'Clear all fleet data?' : 'Replace the active fleet snapshot?'}
         body={confirmTarget === 'seed'
           ? 'Seeding loads twelve sample instances across five real AWS regions. All existing instance records are removed.'
-          : `Ingesting ${file ? file.name : 'this file'} removes every instance currently stored and rebuilds the snapshot from its rows.`}
-        cta={busy ? 'Working…' : (confirmTarget === 'seed' ? 'Seed demo fleet' : 'Ingest and replace')}
-        onConfirm={confirmTarget === 'seed' ? runSeed : runIngest}
+          : confirmTarget === 'clear'
+            ? 'Removes every instance currently stored. The dashboard, optimize queue, and analytics all go back to empty until you upload or seed data again.'
+            : `Ingesting ${file ? file.name : 'this file'} removes every instance currently stored and rebuilds the snapshot from its rows.`}
+        cta={busy ? 'Working…' : (confirmTarget === 'seed' ? 'Seed demo fleet' : confirmTarget === 'clear' ? 'Clear all data' : 'Ingest and replace')}
+        footnote={confirmTarget === 'clear'
+          ? 'This is permanent — there is no archive or undo for a cleared snapshot.'
+          : 'The current snapshot is archived to the optimization log before it is overwritten.'}
+        onConfirm={confirmTarget === 'seed' ? runSeed : confirmTarget === 'clear' ? runClear : runIngest}
         onCancel={() => setConfirmTarget(null)}
       />
     </section>
