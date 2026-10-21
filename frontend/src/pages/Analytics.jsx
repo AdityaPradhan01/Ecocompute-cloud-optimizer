@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import { COLOR, n0, n1 } from '../theme';
@@ -7,6 +8,7 @@ import { EmptyFleetState, ErrorFleetState, LoadingSkeletons } from '../component
 const axisStyle = { fontFamily: 'Archivo, sans-serif', fontSize: 10, fill: COLOR.muted };
 
 const Analytics = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -33,7 +35,20 @@ const Analytics = () => {
   return (
     <section style={{ flex: 1 }}>
       <div style={{ padding: '22px 28px', background: COLOR.ink, color: '#fff', borderBottom: `2px solid ${COLOR.ink}` }}>
-        <span style={{ display: 'block', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: COLOR.yellow, marginBottom: 14 }}>Insights engine · {regionRows.reduce((a, r) => a + r.count, 0)} instances, {regionRows.length} region{regionRows.length === 1 ? '' : 's'}</span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, marginBottom: 14, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: COLOR.yellow }}>Insights engine · {regionRows.reduce((a, r) => a + r.count, 0)} instances, {regionRows.length} region{regionRows.length === 1 ? '' : 's'}</span>
+          <button
+            onClick={() => navigate('/app/reports')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', padding: '11px 18px', background: COLOR.yellow, color: COLOR.ink,
+              fontWeight: 800, fontSize: 13, letterSpacing: '0.02em', border: `1.5px solid ${COLOR.ink}`, whiteSpace: 'nowrap', cursor: 'pointer', flex: 'none'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = COLOR.yellowHover; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = COLOR.yellow; }}
+          >
+            Export report
+          </button>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
           {data.aiInsights.map((text, i) => (
             <div key={i} style={{ borderLeft: `3px solid ${COLOR.yellow}`, paddingLeft: 14 }}>
