@@ -1,5 +1,5 @@
 const CloudResource = require('../models/CloudResource');
-const { generateOptimizationRules, carbonAtZone, getLowestFactorZone, zoneLabel, gridFactorFor } = require('../utils/carbonMath');
+const { generateOptimizationRules, carbonAtZone, getLowestFactorZone, zoneLabel, gridFactorFor, getClassification } = require('../utils/carbonMath');
 
 // Exported separately from the HTTP handler so the scheduled report-delivery
 // job computes the exact same analytics the live Analytics screen shows.
@@ -69,7 +69,9 @@ async function buildAnalytics() {
     const nonProdShare = totalCurrentCost > 0
       ? Math.round((resources.filter(r => r.environment !== 'production').reduce((a, r) => a + (r.costINR || 0), 0) / totalCurrentCost) * 100)
       : 0;
-    const overloaded = resources.filter(r => r.classification === 'Overloaded').sort((a, b) => b.cpuUtilization - a.cpuUtilization)[0];
+    // Live against current thresholds, not the stored snapshot — see the
+    // same note in optimizeController.buildRecommendations().
+    const overloaded = resources.filter(r => getClassification(r.cpuUtilization) === 'Overloaded').sort((a, b) => b.cpuUtilization - a.cpuUtilization)[0];
 
     const aiInsights = [
       `Potential Monthly Overhead Savings: Evaluation identifies an immediate operational cash reduction of ₹${monthlyFinancialSavings.toFixed(2)} available.`,

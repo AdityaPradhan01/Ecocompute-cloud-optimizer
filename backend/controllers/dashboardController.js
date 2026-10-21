@@ -44,7 +44,16 @@ exports.getDashboardSummary = async (req, res) => {
 exports.listResources = async (req, res) => {
   try {
     const resources = await CloudResource.find().sort({ costINR: -1 });
-    res.json(resources);
+    // classification is recomputed live (not the stored snapshot from
+    // ingest time) so this list can't disagree with the idle count on
+    // /api/dashboard/summary, or with Optimize's recommendations, the
+    // moment someone edits thresholds in Settings.
+    const withLiveClassification = resources.map((r) => {
+      const obj = r.toObject();
+      obj.classification = getClassification(r.cpuUtilization);
+      return obj;
+    });
+    res.json(withLiveClassification);
   } catch (error) {
     console.error("Error listing fleet resources:", error);
     res.status(500).json({ error: "Failed to load the fleet register." });

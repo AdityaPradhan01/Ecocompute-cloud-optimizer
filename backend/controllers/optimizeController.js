@@ -1,5 +1,5 @@
 const CloudResource = require('../models/CloudResource');
-const { generateOptimizationRules, carbonAtZone, getLowestFactorZone } = require('../utils/carbonMath');
+const { generateOptimizationRules, carbonAtZone, getLowestFactorZone, getClassification } = require('../utils/carbonMath');
 const { logAudit } = require('../utils/audit');
 const { EC2Client, StopInstancesCommand } = require('@aws-sdk/client-ec2');
 const { resolveCredentials } = require('../utils/awsCredentials');
@@ -21,7 +21,11 @@ async function buildRecommendations() {
       serverName: node.serverName,
       region: node.region,
       cpuUtilization: node.cpuUtilization,
-      classification: node.classification,
+      // Computed live against current thresholds, not the stored snapshot
+      // from ingest time — otherwise this can disagree with `recommendation`
+      // below (also computed live) the moment someone edits thresholds in
+      // Settings without re-uploading the fleet.
+      classification: getClassification(node.cpuUtilization),
       environment: node.environment,
       currentEnergyKWh: node.energyKWh,
       currentCarbonKg: node.carbonKg,

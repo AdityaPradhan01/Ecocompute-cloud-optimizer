@@ -66,7 +66,10 @@ const Optimize = () => {
   const lowestZoneId = sortedZones[0]?.[0];
   const highestZoneId = sortedZones[sortedZones.length - 1]?.[0];
 
-  const recCount = items.filter((r) => r.savingsPercent > 0).length;
+  // Mirrors the backend's logsWritten criteria exactly (savingsPercent > 0
+  // OR a migrate recommendation) so this count can never disagree with the
+  // "N logs written" the button shows after clicking apply.
+  const recCount = items.filter((r) => r.savingsPercent > 0 || r.recommendation.includes('Migrate')).length;
   const sortedRecs = [...items].sort((a, b) => (b.currentCostINR * b.savingsPercent) - (a.currentCostINR * a.savingsPercent));
 
   const deltaCards = summary
