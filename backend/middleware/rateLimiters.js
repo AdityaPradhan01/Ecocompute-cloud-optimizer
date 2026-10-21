@@ -30,9 +30,12 @@ const loginLimiter = rateLimit({
 
 // Connection tests accept user-supplied cloud credentials and make outbound
 // calls to AWS — worth limiting independently of general API traffic.
+// 60, not 20: live troubleshooting a role ARN/external ID in front of an
+// audience means several retries in quick succession — the limit should
+// never be what fails, only actual abuse.
 const connectionTestLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20 * DEV_MULTIPLIER,
+  max: 60 * DEV_MULTIPLIER,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many connection test attempts. Please wait before trying again.' }
@@ -51,10 +54,11 @@ const leadLimiter = rateLimit({
 
 // CSV upload does real disk + DB I/O (write temp file, parse, replace the
 // whole fleet snapshot) — worth its own ceiling independent of the general
-// API limit, same reasoning as connection tests.
+// API limit, same reasoning as connection tests. 60, not 20, for the same
+// live-retry reason.
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20 * DEV_MULTIPLIER,
+  max: 60 * DEV_MULTIPLIER,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many upload attempts. Please wait before trying again.' }

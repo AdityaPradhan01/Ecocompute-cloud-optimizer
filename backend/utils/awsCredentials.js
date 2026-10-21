@@ -25,7 +25,11 @@ async function resolveCredentials(connection) {
     RoleArn: roleArn,
     ExternalId: externalId,
     RoleSessionName: 'ecocompute-poll',
-    DurationSeconds: 900
+    // 3600 (1 hour) — AWS's own default max session duration for a role
+    // with no explicit MaxSessionDuration override, so this is always
+    // valid. 900 left a large account's sync at risk of the session
+    // expiring mid-pagination/mid-CloudWatch-fan-out.
+    DurationSeconds: 3600
   }));
   return {
     accessKeyId: result.Credentials.AccessKeyId,
