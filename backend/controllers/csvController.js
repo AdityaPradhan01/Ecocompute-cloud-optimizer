@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { Transform } = require('stream');
 const csv = require('csv-parser');
 const CloudResource = require('../models/CloudResource');
 const {
@@ -9,6 +10,29 @@ const {
   isKnownRegion
 } = require('../utils/carbonMath');
 const { logAudit } = require('../utils/audit');
+
+// Excel's "CSV UTF-8" export — the single most common real-world source of
+// a spreadsheet dataset — prepends a UTF-8 byte-order mark (EF BB BF) to
+// every file. Left in place, it silently glues itself onto the first
+// header name ("serverName" becomes "﻿serverName"), so csv-parser's
+// very first column never matches and every single row gets rejected as
+// "missing required fields" — with no hint that the file is otherwise
+// perfectly valid. Stripped here, at the raw byte level, before csv-parser
+// ever sees it.
+function stripBom() {
+  let checked = false;
+  return new Transform({
+    transform(chunk, encoding, callback) {
+      if (!checked) {
+        checked = true;
+        if (chunk.length >= 3 && chunk[0] === 0xEF && chunk[1] === 0xBB && chunk[2] === 0xBF) {
+          chunk = chunk.subarray(3);
+        }
+      }
+      callback(null, chunk);
+    }
+  });
+}
 
 exports.uploadCSV = async (req, res) => {
   if (!req.file) {
@@ -23,6 +47,7 @@ exports.uploadCSV = async (req, res) => {
 
   // Stream read and validate columns inside incoming dataset rows
   fs.createReadStream(filePath)
+    .pipe(stripBom())
     .pipe(csv())
     .on('error', (err) => {
       // A malformed/corrupt upload (binary garbage with a .csv extension,
@@ -38,6 +63,12 @@ exports.uploadCSV = async (req, res) => {
     })
     .on('data', (data) => {
       rowNum++;
+
+      // A wholly blank line (trailing newlines at EOF are extremely common
+      // in real-world exports) isn't a malformed data row — don't report it
+      // as one, which would otherwise look like a real validation failure.
+      const isBlankLine = Object.values(data).every((v) => v === undefined || String(v).trim() === '');
+      if (isBlankLine) return;
 
       // Validate required columns are present
       if (!data.serverName || !data.tdp || !data.cpuUtilization || !data.region || !data.hourlyRate) {
