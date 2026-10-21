@@ -32,7 +32,6 @@ const Splash = ({ onDone }) => {
     try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch { return false; }
   });
   const [stepIndex, setStepIndex] = useState(0);
-  const [serverCount, setServerCount] = useState(null);
   const [offline, setOffline] = useState(false);
   const [exiting, setExiting] = useState(false);
   const doneRef = useRef(false);
@@ -55,8 +54,12 @@ const Splash = ({ onDone }) => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 6000);
       try {
-        const res = await client.get('/api/dashboard/summary', { signal: controller.signal });
-        if (!cancelled) setServerCount(res.data.serversScanned ?? 0);
+        // Public health check, not an authenticated endpoint — this splash
+        // plays on /login too, before any token exists. Hitting an
+        // authenticated route here always 401s pre-login and used to make
+        // every single fresh session falsely report "offline mode", even
+        // with a perfectly healthy backend.
+        await client.get('/api/health', { signal: controller.signal });
       } catch {
         if (!cancelled) setOffline(true);
       } finally {
@@ -90,12 +93,15 @@ const Splash = ({ onDone }) => {
   if (alreadyPlayed) return null;
 
   const step = STEPS[stepIndex];
+  // Pre-login, the health check can only confirm the backend itself is
+  // reachable — not inventory contents, which need an authenticated
+  // session. No fabricated count here; honest either way.
   const statusText = stepIndex === 1 && offline
     ? 'Starting in offline mode — no connection to the data service'
     : stepIndex === 2
       ? offline
-        ? 'Loading server inventory — offline, showing nothing until reconnected'
-        : `Loading server inventory — ${serverCount ?? 0} found`
+        ? 'Server inventory unavailable — offline, showing nothing until reconnected'
+        : 'Data service reachable'
       : step.text;
 
   return (
