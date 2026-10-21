@@ -73,8 +73,15 @@ const Connections = () => {
   const saveConnection = async () => {
     setSaveError(null);
     try {
-      await client.post('/api/connections', { ...credentialPayload(), pollIntervalMinutes: poll });
+      const res = await client.post('/api/connections', { ...credentialPayload(), pollIntervalMinutes: poll });
+      // Sync immediately instead of waiting on the 30s background poller —
+      // otherwise the card sits on "Needs auth / Add key" for up to half a
+      // minute right after a credential that just tested successfully,
+      // which reads as broken even though it self-heals shortly after.
+      const id = res.data.connection?._id;
+      if (id) await client.post(`/api/connections/${id}/sync`).catch(() => {});
       load();
+      loadSyncLog();
     } catch (err) {
       setSaveError(err.response?.data?.error || 'Failed to save connection.');
     }
