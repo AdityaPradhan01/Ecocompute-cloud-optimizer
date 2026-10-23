@@ -30,9 +30,23 @@ async function main() {
   process.env.MONGO_URI = mongod.getUri('ecocompute_smoketest');
 
   require('../index.js');
-  await new Promise((r) => setTimeout(r, 1200)); // let mongoose connect + settings load
 
   const base = `http://localhost:${process.env.PORT}`;
+
+  // index.js only calls app.listen() after Mongo connects, settings load,
+  // and the scheduler starts — a chain whose total time varies with runner
+  // load (a cold mongodb-memory-server download on a busy CI box can blow
+  // well past a fixed sleep). Poll /api/health instead of guessing a delay,
+  // so this only waits as long as boot actually takes.
+  const bootDeadline = Date.now() + 30_000;
+  for (;;) {
+    try {
+      const res = await fetch(`${base}/api/health`);
+      if (res.ok) break;
+    } catch { /* server not accepting connections yet */ }
+    if (Date.now() > bootDeadline) throw new Error('Server did not become ready within 30s of boot.');
+    await new Promise((r) => setTimeout(r, 250));
+  }
   const results = [];
   const record = async (label, fn) => {
     try { results.push([label, 'OK', JSON.stringify(await fn()).slice(0, 160)]); }
