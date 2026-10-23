@@ -2,6 +2,8 @@ const fs = require('fs');
 const { Transform } = require('stream');
 const csv = require('csv-parser');
 const CloudResource = require('../models/CloudResource');
+const Connection = require('../models/Connection');
+const SyncLog = require('../models/SyncLog');
 const {
   calculateEnergy,
   calculateCarbon,
@@ -166,11 +168,19 @@ exports.uploadCSV = async (req, res) => {
 // Wipes the fleet snapshot back to empty — a deliberate, explicit reset
 // (confirmed on the frontend) independent of login/logout, so a fresh demo
 // or a new customer handoff can start from zero without touching auth.
+//
+// Also removes saved Connection credentials and their SyncLog history. A
+// Connection left behind would otherwise keep showing stale AWS trial
+// credentials on the Connections page, and the background scheduler
+// (backend/utils/scheduler.js polls every 30s) would silently resync it and
+// repopulate CloudResource — undoing the clear a user just asked for.
 exports.clearFleet = async (req, res) => {
   try {
     const { deletedCount } = await CloudResource.deleteMany({});
-    await logAudit(`Fleet snapshot cleared — ${deletedCount} instance(s) removed`);
-    res.json({ success: true, message: `Cleared ${deletedCount} instance(s). The fleet snapshot is now empty.`, deletedCount });
+    const { deletedCount: connectionsRemoved } = await Connection.deleteMany({});
+    await SyncLog.deleteMany({});
+    await logAudit(`Fleet snapshot cleared — ${deletedCount} instance(s) removed, ${connectionsRemoved} connection(s) disconnected`);
+    res.json({ success: true, message: `Cleared ${deletedCount} instance(s) and disconnected ${connectionsRemoved} saved connection(s). Everything is now empty.`, deletedCount });
   } catch (err) {
     console.error('Error clearing fleet snapshot:', err);
     res.status(500).json({ success: false, message: 'Failed to clear the fleet snapshot.' });

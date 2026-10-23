@@ -257,7 +257,7 @@ const DataIntake = () => {
         body={confirmTarget === 'seed'
           ? 'Seeding loads twelve sample instances across five real AWS regions. All existing instance records are removed.'
           : confirmTarget === 'clear'
-            ? 'Removes every instance currently stored. The dashboard, optimize queue, and analytics all go back to empty until you upload or seed data again.'
+            ? 'Removes every instance currently stored, and disconnects any saved AWS (or other) connection credentials. The dashboard, optimize queue, connections, and analytics all go back to empty until you upload, seed, or reconnect a source again.'
             : `Ingesting ${file ? file.name : 'this file'} removes every instance currently stored and rebuilds the snapshot from its rows.`}
         cta={busy ? 'Working…' : (confirmTarget === 'seed' ? 'Seed demo fleet' : confirmTarget === 'clear' ? 'Clear all data' : 'Ingest and replace')}
         footnote={confirmTarget === 'clear'

@@ -32,6 +32,14 @@ async function buildRecommendations() {
       currentCostINR: node.costINR,
       recommendation,
       savingsPercent: savingsPercent * 100, // Convert fraction to percentage display
+      // Persisted by /api/optimize/apply — read back here so the frontend
+      // can rebuild the "Estimate computed" banner from the database on
+      // every page load, instead of a local state var that resets the
+      // moment this page unmounts (e.g. navigating away and back).
+      isOptimized: !!node.isOptimized,
+      optimizedEnergyKWh: node.optimizedEnergyKWh,
+      optimizedCarbonKg: node.optimizedCarbonKg,
+      optimizedCostINR: node.optimizedCostINR,
       // Present only for resources discovered via a live AWS connection —
       // this is what the frontend uses to offer the real "Shut down on
       // AWS" action instead of just the fleet-wide savings estimate.

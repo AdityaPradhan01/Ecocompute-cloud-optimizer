@@ -9,7 +9,6 @@ const axisStyle = { fontFamily: 'Archivo, sans-serif', fontSize: 10, fill: COLOR
 
 const Optimize = () => {
   const [items, setItems] = useState([]);
-  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -32,8 +31,7 @@ const Optimize = () => {
   const handleApplyOptimization = async () => {
     setApplying(true);
     try {
-      const response = await client.post('/api/optimize/apply');
-      setSummary(response.data.metrics);
+      await client.post('/api/optimize/apply');
       fetchRecommendations();
     } catch (err) {
       setError(true);
@@ -71,6 +69,27 @@ const Optimize = () => {
   // "N logs written" the button shows after clicking apply.
   const recCount = items.filter((r) => r.savingsPercent > 0 || r.recommendation.includes('Migrate')).length;
   const sortedRecs = [...items].sort((a, b) => (b.currentCostINR * b.savingsPercent) - (a.currentCostINR * a.savingsPercent));
+
+  // Rebuilt from each resource's persisted isOptimized/optimized* fields
+  // (set by POST /api/optimize/apply and read back on every GET /api/optimize)
+  // rather than kept in a local state var — so the "Estimate computed"
+  // banner survives navigating away from this page and back, and
+  // disappears on its own once the fleet is cleared (items becomes empty).
+  const optimizedItems = items.filter((r) => r.isOptimized);
+  const summary = optimizedItems.length > 0
+    ? (() => {
+        const monthlySavingsINR = optimizedItems.reduce((a, r) => a + (r.currentCostINR - r.optimizedCostINR), 0);
+        const energyReductionKWh = optimizedItems.reduce((a, r) => a + (r.currentEnergyKWh - r.optimizedEnergyKWh), 0);
+        const co2ReductionKg = optimizedItems.reduce((a, r) => a + (r.currentCarbonKg - r.optimizedCarbonKg), 0);
+        return {
+          monthlySavingsINR,
+          annualSavingsINR: monthlySavingsINR * 12,
+          co2ReductionKg,
+          energyReductionKWh,
+          logsWritten: optimizedItems.length
+        };
+      })()
+    : null;
 
   const deltaCards = summary
     ? [
@@ -112,7 +131,7 @@ const Optimize = () => {
           <p style={{ margin: 0, fontSize: 12.5, color: COLOR.body }}>Four rules run in order: shut down idle instances, rightsize the underutilized, schedule off-hours for dev and test, then flag lower-carbon-zone candidates. This button only computes the savings estimate — no infrastructure changes, no cloud API calls. For instances discovered via a live AWS connection, use the red "Shut down on AWS" action in the table below to actually stop that instance.</p>
         </div>
         <button onClick={handleApplyOptimization} disabled={applying} style={{ padding: '13px 22px', background: COLOR.yellow, color: COLOR.ink, border: `2px solid ${COLOR.ink}`, fontWeight: 800, fontSize: 13, cursor: applying ? 'default' : 'pointer', flex: 'none' }}>
-          {applying ? 'Computing…' : (summary ? `Estimate computed · ${summary.logsWritten} logs written` : 'Preview savings (no changes)')}
+          {applying ? 'Applying…' : (summary ? `Optimization applied · ${summary.logsWritten} logs written` : 'Apply optimization')}
         </button>
       </div>
 
